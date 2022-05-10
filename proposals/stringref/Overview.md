@@ -479,6 +479,55 @@ Return the number of codepoints that were actually consumed.
 Return a substring of *`view`*, starting at the current position of
 *`view`* and continuing for at most *`codepoints`* codepoints.
 
+## Binary encoding
+
+```
+reftype ::= ...
+         |  0x67 ⇒ stringref         ; SLEB128(-0x19)
+         |  0x66 ⇒ stringview_wtf8   ; SLEB128(-0x1a)
+         |  0x65 ⇒ stringview_wtf16  ; SLEB128(-0x1b)
+         |  0x64 ⇒ stringview_iter   ; SLEB128(-0x1c)
+
+wtf8_policy ::= 0x00 ⇒ utf8
+             |  0x01 ⇒ wtf8
+             |  0x02 ⇒ replace
+
+instr ::= ...
+       |  0xfc 0x12 $mem:u32              ⇒ string.new_wtf8 $mem
+       |  0xfc 0x13 $mem:u32              ⇒ string.new_wtf16 $mem
+       |  0xfc 0x14 $idx:u32              ⇒ string.const $idx
+       |  0xfc 0x15                       ⇒ string.measure_utf8
+       |  0xfc 0x16                       ⇒ string.measure_wtf8
+       |  0xfc 0x17                       ⇒ string.measure_wtf16
+       |  0xfc 0x18 $mem:u32 $policy:u32  ⇒ string.encode_wtf8 $mem $policy
+       |  0xfc 0x19 $mem:u32              ⇒ string.encode_wtf16 $mem
+       |  0xfc 0x1a                       ⇒ string.concat
+       |  0xfc 0x1b                       ⇒ string.eq
+       |  0xfc 0x1c                       ⇒ string.is_usv_sequence
+       |  0xfc 0x1d                       ⇒ string.as_wtf8
+       |  0xfc 0x1e                       ⇒ string.as_wtf16
+       |  0xfc 0x1f                       ⇒ string.as_iter
+       |  0xfc 0x20                       ⇒ stringview_wtf8.advance
+       |  0xfc 0x21 $mem:u32 $policy:u32  ⇒ stringview_wtf8.encode $mem $policy
+       |  0xfc 0x22                       ⇒ stringview_wtf8.slice
+       |  0xfc 0x23                       ⇒ stringview_wtf16.length
+       |  0xfc 0x24                       ⇒ stringview_wtf16.get_codeunit
+       |  0xfc 0x25 $mem:u32              ⇒ stringview_wtf16.encode $mem
+       |  0xfc 0x26                       ⇒ stringview_wtf16.slice
+       |  0xfc 0x27                       ⇒ stringview_iter.cur
+       |  0xfc 0x28                       ⇒ stringview_iter.advance
+       |  0xfc 0x29                       ⇒ stringview_iter.rewind
+       |  0xfc 0x2a                       ⇒ stringview_iter.slice
+
+;; New section.  Could be a data segment instead, but really we would
+;; like for it to come before the code so that we can avoid dynamic
+;; checks in string.const, and before the elem and global sections so
+;; that we can have constant strings.  If present, must be present only
+;; once, and right before the globals section (or where the globals
+;; section would be).
+stringrefs ::= section_13(vec(vec(u8)))
+```
+
 ## Examples
 
 We assume that the textual syntax for `string.encode` and `string.new`
