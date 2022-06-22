@@ -519,13 +519,13 @@ instr ::= ...
        |  0xfb 0xa3                       ⇒ stringview_iter.rewind
        |  0xfb 0xa4                       ⇒ stringview_iter.slice
 
-;; New section.  Could be a data segment instead, but really we would
-;; like for it to come before the code so that we can avoid dynamic
-;; checks in string.const, and before the elem and global sections so
-;; that we can have constant strings.  If present, must be present only
-;; once, and right before the globals section (or where the globals
-;; section would be).
-stringrefs ::= section_14(vec(vec(u8)))
+;; New section.  If present, must be present only once, and right before
+;; the globals section (or where the globals section would be).  Each
+;; vec(u8) must be valid WTF-8.  The 0x00 is a placeholder for future
+;; expansion.  One possible expansion would be to replace the 0x00 with
+;; a u32 indicating a count of supplementary string literals that are in
+;; a section that appears later in the binary, after the code section.
+stringrefs ::= section_14(0x00 vec(vec(u8)))
 ```
 
 ## Examples
