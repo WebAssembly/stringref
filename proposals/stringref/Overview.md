@@ -198,13 +198,28 @@ immediate.
 ### Creating strings
 
 ```
-(string.new_wtf8 $memory ptr:address bytes:i32)
+wtf8_policy ::= 'utf8' | 'wtf8' | 'replace'
+(string.new_wtf8 $memory $wtf8_policy ptr:address bytes:i32)
   -> str:stringref
 ```
 Create a new string from the *`bytes`* WTF-8 bytes in memory at *`ptr`*.
-Out-of-bounds access will trap.  Attempting to create a string with
-invalid WTF-8 will trap.  The maximum value for *`bytes`* is
+Out-of-bounds access will trap.  The maximum value for *`bytes`* is
 2<sup>31</sup>–1; passing a higher value traps.
+
+The precise decoding semantics depend on the *`$wtf8_policy`* immediate.
+
+For `utf8`, the bytes are decoded using a strict UTF-8 decoder.  If the
+bytes are not valid UTF-8, trap.
+
+For `wtf8`, the bytes are decoded using a strict WTF-8 decoder, which is
+like UTF-8 but also allows isolated surrogates.  If the bytes are not
+valid WTF-8, trap.
+
+For `replace`, all maximal subparts of an invalid subsequence are
+decoded as if they were `U+FFFD` (the replacement character) instead.
+The `replace` policy will never trap due to a decoding error.  See the
+section entitled "U+FFFD Substitution of Maximal Subparts" in the
+Unicode standard, version 14.0.0, page 126.
 
 ```
 (string.new_wtf16 $memory ptr:address codeunits:i32)
@@ -243,6 +258,15 @@ strings in the string table do not use NUL as a terminator. The string
 table section must immediately precede the global section, or where the
 global section would be, in the binary.
 
+Though it is useful for string literals used in constant instructions to
+appear early in the module binary, it may be advantageous to defer
+string literals that are only used at run-time to later in the module
+binary.  This can get bulky string data off the hot path, allowing a
+WebAssembly implementation to start compiling functions as soon as
+possible.  The encoding of the string literals section is preceded by a
+placeholder `0x00` value, allowing for the possibility of a deferred
+string literal section as a future extension.
+
 #### `string.const` size limits
 
 The maximum size for the WTF-8 encoding of an individual string literal
@@ -258,32 +282,33 @@ All parameters and return values measuring a number of codepoints or a
 number of code units represent these sizes as unsigned values.
 
 ```
-(string.measure_utf8 str:stringref)
-  -> bytes:i32
-(string.measure_wtf8 str:stringref)
+(string.measure_wtf8 $wtf8_policy str:stringref)
   -> bytes:i32
 (string.measure_wtf16 str:stringref)
   -> bytes:i32
 ```
-Measure how many bytes would be necessary to encode the contents of the
-string *`str`* to UTF-8, WTF-8, or WTF-16 respectively.  For
-`string.measure_utf8`, if the string contains an isolated surrogate,
-return -1.
+Measure the number of code units that would be required to encode the
+contents of the string *`str`* to WTF-8 or WTF-16 respectively.
+For `string.measure_wtf8` with the `utf8` policy, if the string contains
+an isolated surrogate, return -1.
 
-The maximum number of bytes returned by these instructions is
-2<sup>31</sup>-1.  If an encoding would require more bytes, it is as if
-the contents can't be encoded at all (the return value is -1).
+The maximum number of code units returned by `string.measure_wtf8` is is
+2<sup>31</sup>-1.  The maximum number of code units returned by
+`string.measure_wtf16` is is 2<sup>30</sup>-1.  If an encoding would
+require more code units than the limit, the result is -1.
 
 ```
-wtf8_policy ::= 'utf8' | 'wtf8' | 'replace'
 (string.encode_wtf8 $memory $wtf8_policy str:stringref ptr:address)
 (string.encode_wtf16 $memory str:stringref ptr:address)
 ```
 Encode the contents of the string *`str`* as UTF-8, WTF-8, or WTF-16,
-respectively, to memory at *`ptr`*.  The number of bytes written will be
-the same as returned by the corresponding `string.measure_*encoding*`.
-Note that no `NUL` terminator is ever written.  For
-`string.encode_utf8`, trap if the string contains an isolated surrogate.
+respectively, to memory at *`ptr`*.  The number of code units written
+will be the same as returned by the corresponding
+`string.measure_*encoding*`.
+
+Each code unit is written to memory as if stored by `i32.store8` or
+`i32.store16`, respectively, so WTF-16 code units are in little-endian
+byte order.
 
 The maximum number of bytes that can be encoded at once by
 `string.encode` is 2<sup>31</sup>-1.  If an encoding would require more
@@ -293,8 +318,8 @@ For `string.encode_wtf8`, if an isolated surrogate is seen, the behavior
 determines on the *`$wtf8_policy`* immediate.  For `utf8`, trap.  For
 `wtf8`, the surrogate is encoded as per WTF-8.  For `replace`, `U+FFFD`
 (the replacement character) is encoded instead.  Note that the UTF-8
-encoding of `U+FFFD` is the same length as the encoding of an isolated
-surrogate.
+encoding of `U+FFFD` is the same length as the WTF-8 encoding of an
+isolated surrogate.
 
 ### Concatenation
 
@@ -493,11 +518,10 @@ wtf8_policy ::= 0x00 ⇒ utf8
              |  0x02 ⇒ replace
 
 instr ::= ...
-       |  0xfb 0x80 $mem:u32              ⇒ string.new_wtf8 $mem
+       |  0xfb 0x80 $mem:u32 $policy:u32  ⇒ string.new_wtf8 $mem $policy
        |  0xfb 0x81 $mem:u32              ⇒ string.new_wtf16 $mem
        |  0xfb 0x82 $idx:u32              ⇒ string.const $idx
-       |  0xfb 0x83                       ⇒ string.measure_utf8
-       |  0xfb 0x84                       ⇒ string.measure_wtf8
+       |  0xfb 0x84 $policy:u32           ⇒ string.measure_wtf8 $policy
        |  0xfb 0x85                       ⇒ string.measure_wtf16
        |  0xfb 0x86 $mem:u32 $policy:u32  ⇒ string.encode_wtf8 $mem $policy
        |  0xfb 0x87 $mem:u32              ⇒ string.encode_wtf16 $mem
@@ -754,7 +778,7 @@ open to considering adding more instructions.
   (local $len i32)
   (local $ptr i32)
   local.get $str
-  string.measure_utf8
+  string.measure_wtf8 utf8
   local.set $len
 
   block $valid
@@ -773,7 +797,7 @@ open to considering adding more instructions.
 
   local.get $str
   local.get $ptr
-  string.encode_wtf8
+  string.encode_wtf8 wtf8
 
   local.get $ptr
   local.get $len
@@ -785,12 +809,12 @@ open to considering adding more instructions.
   return)
 ```
 
-Using `string.measure_utf8` ensures that the encoded string is a valid
-unicode scalar value sequence.  How to handle invalid UTF-8 is up to the
-user; instead of `unreachable` we could throw an exception.
+Using `string.measure_wtf8 utf8` ensures that the encoded string is a
+valid unicode scalar value sequence.  How to handle invalid UTF-8 is up
+to the user; instead of `unreachable` we could throw an exception.
 
 If we meant to handle isolated surrogates, we could use
-`string.measure_wtf8` instead.
+`string.measure_wtf8 wtf8` instead.
 
 ### Stream over contents of string
 
@@ -810,7 +834,7 @@ will encode isolated surrogates as WTF-8.
     local.get $cursor
     global.get $buf
     i32.const 1024
-    string.encode_wtf8               ;; push bytes written
+    string.encode_wtf8 wtf8          ;; push bytes written
     local.tee $bytes
     (if i32.eqz (then return))       ;; if no bytes encoded, done
     local.get $bytes
