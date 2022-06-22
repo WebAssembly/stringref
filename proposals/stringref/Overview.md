@@ -483,10 +483,10 @@ Return a substring of *`view`*, starting at the current position of
 
 ```
 reftype ::= ...
-         |  0x65 ⇒ stringref         ; SLEB128(-0x1b)
-         |  0x64 ⇒ stringview_wtf8   ; SLEB128(-0x1c)
-         |  0x63 ⇒ stringview_wtf16  ; SLEB128(-0x1d)
-         |  0x62 ⇒ stringview_iter   ; SLEB128(-0x1e)
+         |  0x64 ⇒ stringref         ; SLEB128(-0x1c)
+         |  0x63 ⇒ stringview_wtf8   ; SLEB128(-0x1d)
+         |  0x62 ⇒ stringview_wtf16  ; SLEB128(-0x1e)
+         |  0x61 ⇒ stringview_iter   ; SLEB128(-0x1f)
 
 wtf8_policy ::= 0x00 ⇒ utf8
              |  0x01 ⇒ wtf8
