@@ -25,7 +25,7 @@ find good compromises are "minimal" and "viable".
  3. Allow WebAssembly implementations to efficiently represent strings
     internally in either WTF-8 or WTF-16 encodings
  4. Allow access to WTF-16 code units for Java, Dart, Kotlin and similar languages
- 5. Allow string literals in element sections
+ 5. Allow string literals as constant expressions
 
 ## Definitions
  - *codepoint*: An integer in the range [0,0x10FFFF].
