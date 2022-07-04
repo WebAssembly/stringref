@@ -252,7 +252,7 @@ be used in global variable initializers.
 #### String literal section
 
 The `string.const` section indicates the literal as an `i32` index into
-a new custom section: a string table, encoded as a `vec(vec(u8))` of
+a new regular section: a string table, encoded as a `vec(vec(u8))` of
 valid WTF-8 strings.  Because literal strings can contain codepoint 0,
 strings in the string table do not use NUL as a terminator. The string
 table section must immediately precede the global section, or where the
