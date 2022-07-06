@@ -195,6 +195,10 @@ address ::= i32 | i64
 Such instructions also take the memory to which to read or write as an
 immediate.
 
+Although `stringref` is a nullable type, trap if a null `stringref`
+value reaches any instruction in this proposal.  The one exception is
+`string.eq`.
+
 ### Creating strings
 
 ```
@@ -344,8 +348,9 @@ If an allocation fails, the implementation must trap.  Fallible
 ```
 (string.eq a:stringref b:stringref) -> i32
 ```
-Return 1 if the strings *`a`* and *`b`* contain the same codepoint
-sequence.  Return 0 otherwise.
+If both *`a`* and *`b`* are null, return 1.  If only one of them is
+null, return 0.  Otherwise return 1 if the strings *`a`* and *`b`*
+contain the same codepoint sequence, or 0 otherwise.
 
 ```
 (string.is_usv_sequence str:stringref)
