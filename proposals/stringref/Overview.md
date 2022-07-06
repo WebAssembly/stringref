@@ -516,6 +516,73 @@ Return the number of codepoints that were actually consumed.
 Return a substring of *`view`*, starting at the current position of
 *`view`* and continuing for at most *`codepoints`* codepoints.
 
+### GC integration
+
+Though this proposal does not have a dependency on the [GC
+proposal](https://github.com/WebAssembly/gc/blob/master/proposals/gc/MVP.md),
+compiler authors that target GC will likely want to be able to encode
+the contents of a stringref to a GC array, and vice versa.
+
+The primary use cases are:
+
+ 1. String-builder interfaces, which will likely use a WTF-8 or WTF-16
+    array as intermediate storage, depending on the language being
+    compiled.  We will need to be able to create strings from arrays.
+    When the string contents are ready, we will almost always decode
+    from array offset 0 and continue to some offset before the end of
+    the array.  We'll also need to be able to append a string's contents
+    to an array at a given offset.
+ 2. Communicating strings with another process, possibly over the
+    network.  Here, UTF-8 and WTF-8 are the important encodings, and we
+    need to be able to read and write to arbitrary slices of arrays.
+
+The instructions below shall be available in WebAssembly implementations
+that support both GC and stringrefs.
+
+```
+(string.new_wtf8_array $wtf8_policy codeunits:$t start:i32 end:i32)
+  if expand($t) => array i8
+  -> str:stringref
+```
+Create a new string from a subsequence of the *`codeunits`* WTF-8 bytes
+in a GC-managed array, starting from offset *`start`* and continuing to
+but not including *`end`*.  If *`end`* is less than *`start`* or is
+greater than the array length, trap.  The bytes are decoded according to
+`$wtf8_policy`, as in `string.new_wtf8`.  The maximum value for
+*`end`*–*`start`* is 2<sup>31</sup>–1; passing a higher value traps.
+
+```
+(string.new_wtf16_array codeunits:$t start:i32 end:i32)
+  if expand($t) => array i16
+  -> str:stringref
+```
+Create a new string from a subsequence of the *`codeunits`* WTF-16 code
+units in a GC-managed array, starting from offset *`start`* and
+continuing to but not including *`end`*.  If *`end`* is less than
+*`start`* or is greater than the array length, trap.  The maximum value
+for *`end`*–*`start`* is 2<sup>30</sup>–1; passing a higher value
+traps.
+
+```
+(string.encode_wtf8_array $wtf8_policy str:stringref array:$t start:i32)
+  if expand($t) => array (mut i8)
+  -> codeunits:i32
+(string.encode_wtf16_array str:stringref array:$t start:i32)
+  if expand($t) => array (mut i16)
+  -> codeunits:i32
+```
+Encode the contents of the string *`str`* as WTF-8 or WTF-16,
+respectively, to the GC-managed array *`array`*, starting at offset
+*`start`*.  Return the number of code units written, which will be the
+same as the result of a the corresponding `string.measure_wtf8` or
+`string.measure_wtf16`, respectively.  If there is not space for the
+code units in the array, trap.  Note that no `NUL` terminator is ever
+written.
+
+For `string.encode_wtf8_array`, if an isolated surrogate is seen, the
+behavior depends on the *`$wtf8_policy`* immediate, in the same way as
+`string.encode_wtf8`.
+
 ## Binary encoding
 
 ```
@@ -554,6 +621,10 @@ instr ::= ...
        |  0xfb 0xa2                       ⇒ stringview_iter.advance
        |  0xfb 0xa3                       ⇒ stringview_iter.rewind
        |  0xfb 0xa4                       ⇒ stringview_iter.slice
+       |  0xfb 0xb0 $policy:u32      [gc] ⇒ string.new_wtf8_array $policy
+       |  0xfb 0xb1                  [gc] ⇒ string.new_wtf16_array
+       |  0xfb 0xb2 $policy:u32      [gc] ⇒ string.encode_wtf8_array $policy
+       |  0xfb 0xb3                  [gc] ⇒ string.encode_wtf16_array
 
 ;; New section.  If present, must be present only once, and right before
 ;; the globals section (or where the globals section would be).  Each
