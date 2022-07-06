@@ -418,8 +418,9 @@ If an isolated surrogate is seen, the behavior determines on the
   -> str:stringref
 ```
 Return a substring of *`view`*, for the WTF-8 bytes starting at offset
-*`start`* and not greater than *`end`*.  *`start`* and *`end`* receive
-the "WTF-8 position treatment", as for `stringview_wtf8.advance`.
+*`start`* and continuing to but not including *`end`*.  *`start`* and
+*`end`* receive the "WTF-8 position treatment", as for
+`stringview_wtf8.advance`.
 
 ### `stringview_wtf16`
 
@@ -462,8 +463,9 @@ transformation is the "WTF-16 position treatment".
   -> str:stringref
 ```
 Return a substring of *`view`*, for the WTF-16 code units starting at offset
-*`start`* and not greater than *`end`*.  *`start`* and *`end`* receive
-the "WTF-16 position treatment", as for `stringview_wtf16.encode`.
+*`start`* and continuing to but not including *`end`*.  *`start`* and
+*`end`* receive the "WTF-16 position treatment", as for
+`stringview_wtf16.encode`.
 
 ### `stringview_iter`
 
@@ -638,7 +640,9 @@ rather it just deals in WTF-16, as most source languages that expose
   local.get $str
   string.as_wtf16
   local.get $offset
+  local.get $offset
   local.get $codeunits
+  i32.add
   stringview_wtf16.slice)
 ```
 
