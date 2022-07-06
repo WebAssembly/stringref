@@ -228,7 +228,9 @@ Unicode standard, version 14.0.0, page 126.
 Create a new string from the *`codeunits`* code units encoded in memory at
 *`ptr`*.  Out-of-bounds access will trap.  *`ptr`* must be two-byte
 aligned, and will trap otherwise.  The maximum value for *`codeunits`*
-is 2<sup>30</sup>–1; passing a higher value traps.
+is 2<sup>30</sup>–1; passing a higher value traps.  Each code unit is
+read from memory as if with `i32.load16`, and are therefore decoded
+using little-endian byte order.
 
 #### `string.new` size limits
 
