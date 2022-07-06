@@ -511,7 +511,7 @@ proposal](https://github.com/WebAssembly/gc/blob/master/proposals/gc/MVP.md),
 compiler authors that target GC will likely want to be able to encode
 the contents of a stringref to a GC array, and vice versa.
 
-Our primary use cases are:
+The primary use cases are:
 
  1. String-builder interfaces, which will likely use a WTF-8 or WTF-16
     array as intermediate storage, depending on the language being
@@ -523,6 +523,9 @@ Our primary use cases are:
  2. Communicating strings with another process, possibly over the
     network.  Here, UTF-8 and WTF-8 are the important encodings, and we
     need to be able to read and write to arbitrary slices of arrays.
+
+The instructions below shall be available in WebAssembly implementations
+that support both GC and stringrefs.
 
 ```
 (string.new_wtf8_array $wtf8_policy codeunits:$t start:i32 end:i32)
@@ -551,13 +554,15 @@ traps.
 ```
 (string.encode_wtf8_array $wtf8_policy str:stringref array:$t start:i32)
   if expand($t) => array (mut i8)
+  -> codeunits:i32
 (string.encode_wtf16_array str:stringref array:$t start:i32)
   if expand($t) => array (mut i16)
+  -> codeunits:i32
 ```
 Encode the contents of the string *`str`* as WTF-8 or WTF-16,
 respectively, to the GC-managed array *`array`*, starting at offset
-*`start`*.  The number of code units written will be the same as
-returned by the corresponding `string.measure_wtf8` or
+*`start`*.  Return the number of code units written, which will be the
+same as the result of a the corresponding `string.measure_wtf8` or
 `string.measure_wtf16`, respectively.  If there is not space for the
 code units in the array, trap.  Note that no `NUL` terminator is ever
 written.
