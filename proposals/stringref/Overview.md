@@ -283,9 +283,9 @@ number of code units represent these sizes as unsigned values.
 
 ```
 (string.measure_wtf8 $wtf8_policy str:stringref)
-  -> bytes:i32
+  -> codeunits:i32
 (string.measure_wtf16 str:stringref)
-  -> bytes:i32
+  -> codeunits:i32
 ```
 Measure the number of code units that would be required to encode the
 contents of the string *`str`* to WTF-8 or WTF-16 respectively.
@@ -299,11 +299,13 @@ require more code units than the limit, the result is -1.
 
 ```
 (string.encode_wtf8 $memory $wtf8_policy str:stringref ptr:address)
+  -> codeunits:i32
 (string.encode_wtf16 $memory str:stringref ptr:address)
+  -> codeunits:i32
 ```
 Encode the contents of the string *`str`* as UTF-8, WTF-8, or WTF-16,
-respectively, to memory at *`ptr`*.  The number of code units written
-will be the same as returned by the corresponding
+respectively, to memory at *`ptr`*.  Return the number of code units
+written, which will be the same as returned by the corresponding
 `string.measure_*encoding*`.
 
 Each code unit is written to memory as if stored by `i32.store8` or
@@ -554,8 +556,8 @@ stringrefs ::= section_14(0x00 vec(vec(u8)))
 
 ## Examples
 
-We assume that the textual syntax for `string.encode` and `string.new`
-allows you to elide the memory, in which case it defaults to 0.
+We assume that the textual syntax for instructions that take a memory
+operand allows you to elide the memory, in which case it defaults to 0.
 
 ### Make string from NUL-terminated UTF-8 in memory
 
@@ -797,10 +799,9 @@ open to considering adding more instructions.
 
   local.get $str
   local.get $ptr
-  string.encode_wtf8 wtf8
+  string.encode_wtf8 wtf8          ;; push bytes written, same as $len
 
   local.get $ptr
-  local.get $len
   i32.add
   i32.const 0
   i32.store8                       ;; write NUL
