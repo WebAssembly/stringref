@@ -477,11 +477,12 @@ stringview can then be used to iterate over the codepoints of the
 string.
 
 ```
-(stringview_iter.cur view:stringview_iter)
+(stringview_iter.next view:stringview_iter)
   -> codepoint:i32
 ```
-Return the codepoint currently pointed to by *`view`*, or -1 if the
-iterator is at the end of the string.
+If *`view`* is already at the end of the string, return -1.  Otherwise
+return the codepoint currently pointed to by the iterator, and advance
+the iterator's position by one codepoint.
 
 ```
 (stringview_iter.advance view:stringview_iter codepoints:i32)
@@ -538,7 +539,7 @@ instr ::= ...
        |  0xfb 0x9b $mem:u32              ⇒ stringview_wtf16.encode $mem
        |  0xfb 0x9c                       ⇒ stringview_wtf16.slice
        |  0xfb 0xa0                       ⇒ string.as_iter
-       |  0xfb 0xa1                       ⇒ stringview_iter.cur
+       |  0xfb 0xa1                       ⇒ stringview_iter.next
        |  0xfb 0xa2                       ⇒ stringview_iter.advance
        |  0xfb 0xa3                       ⇒ stringview_iter.rewind
        |  0xfb 0xa4                       ⇒ stringview_iter.slice
@@ -908,7 +909,7 @@ WTF-8 in memory, for longer strings.
   block $done
     loop $loop
       local.get $iter
-      stringview_iter.cur
+      stringview_iter.next
       local.tee $ch
 
       i32.const -1
@@ -917,11 +918,6 @@ WTF-8 in memory, for longer strings.
 
       local.get $ch
       call $have-codepoint
-
-      local.get $iter
-      i32.const 1
-      string.advance_wtf8
-      drop
     end
   end)
 ```
