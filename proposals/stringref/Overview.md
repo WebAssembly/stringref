@@ -458,10 +458,12 @@ Return the 16-bit code unit at offset *`pos`* in the WTF-16 encoding of
 
 ```
 (stringview_wtf16.encode $memory view:stringview_wtf16 ptr:address pos:i32 len:i32)
+  -> codeunits:i32
 ```
 Write a subsequence of the WTF-16 encoding of *`view`* to memory at
 *`ptr`*, starting at the WTF-16 offset *`pos`*, writing no more than
 *`len`* 16-bit code units.  If *`ptr`* is not two-byte aligned, trap.
+Return the number of code units written.
 
 If *`pos`* is greater than the number of WTF-16 code units in *`view`*,
 it is as if it were instead given as the code unit length.  This
