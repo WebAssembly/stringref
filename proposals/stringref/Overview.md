@@ -599,34 +599,34 @@ wtf8_policy ::= 0x00 ⇒ utf8
              |  0x02 ⇒ replace
 
 instr ::= ...
-       |  0xfb 0x80 $mem:u32 $policy:u32  ⇒ string.new_wtf8 $mem $policy
-       |  0xfb 0x81 $mem:u32              ⇒ string.new_wtf16 $mem
-       |  0xfb 0x82 $idx:u32              ⇒ string.const $idx
-       |  0xfb 0x84 $policy:u32           ⇒ string.measure_wtf8 $policy
-       |  0xfb 0x85                       ⇒ string.measure_wtf16
-       |  0xfb 0x86 $mem:u32 $policy:u32  ⇒ string.encode_wtf8 $mem $policy
-       |  0xfb 0x87 $mem:u32              ⇒ string.encode_wtf16 $mem
-       |  0xfb 0x88                       ⇒ string.concat
-       |  0xfb 0x89                       ⇒ string.eq
-       |  0xfb 0x8a                       ⇒ string.is_usv_sequence
-       |  0xfb 0x90                       ⇒ string.as_wtf8
-       |  0xfb 0x91                       ⇒ stringview_wtf8.advance
-       |  0xfb 0x92 $mem:u32 $policy:u32  ⇒ stringview_wtf8.encode $mem $policy
-       |  0xfb 0x93                       ⇒ stringview_wtf8.slice
-       |  0xfb 0x98                       ⇒ string.as_wtf16
-       |  0xfb 0x99                       ⇒ stringview_wtf16.length
-       |  0xfb 0x9a                       ⇒ stringview_wtf16.get_codeunit
-       |  0xfb 0x9b $mem:u32              ⇒ stringview_wtf16.encode $mem
-       |  0xfb 0x9c                       ⇒ stringview_wtf16.slice
-       |  0xfb 0xa0                       ⇒ string.as_iter
-       |  0xfb 0xa1                       ⇒ stringview_iter.next
-       |  0xfb 0xa2                       ⇒ stringview_iter.advance
-       |  0xfb 0xa3                       ⇒ stringview_iter.rewind
-       |  0xfb 0xa4                       ⇒ stringview_iter.slice
-       |  0xfb 0xb0 $policy:u32      [gc] ⇒ string.new_wtf8_array $policy
-       |  0xfb 0xb1                  [gc] ⇒ string.new_wtf16_array
-       |  0xfb 0xb2 $policy:u32      [gc] ⇒ string.encode_wtf8_array $policy
-       |  0xfb 0xb3                  [gc] ⇒ string.encode_wtf16_array
+       |  0xfb 0x80:u32 $mem:u32 $policy:u32  ⇒ string.new_wtf8 $mem $policy
+       |  0xfb 0x81:u32 $mem:u32              ⇒ string.new_wtf16 $mem
+       |  0xfb 0x82:u32 $idx:u32              ⇒ string.const $idx
+       |  0xfb 0x84:u32 $policy:u32           ⇒ string.measure_wtf8 $policy
+       |  0xfb 0x85:u32                       ⇒ string.measure_wtf16
+       |  0xfb 0x86:u32 $mem:u32 $policy:u32  ⇒ string.encode_wtf8 $mem $policy
+       |  0xfb 0x87:u32 $mem:u32              ⇒ string.encode_wtf16 $mem
+       |  0xfb 0x88:u32                       ⇒ string.concat
+       |  0xfb 0x89:u32                       ⇒ string.eq
+       |  0xfb 0x8a:u32                       ⇒ string.is_usv_sequence
+       |  0xfb 0x90:u32                       ⇒ string.as_wtf8
+       |  0xfb 0x91:u32                       ⇒ stringview_wtf8.advance
+       |  0xfb 0x92:u32 $mem:u32 $policy:u32  ⇒ stringview_wtf8.encode $mem $policy
+       |  0xfb 0x93:u32                       ⇒ stringview_wtf8.slice
+       |  0xfb 0x98:u32                       ⇒ string.as_wtf16
+       |  0xfb 0x99:u32                       ⇒ stringview_wtf16.length
+       |  0xfb 0x9a:u32                       ⇒ stringview_wtf16.get_codeunit
+       |  0xfb 0x9b:u32 $mem:u32              ⇒ stringview_wtf16.encode $mem
+       |  0xfb 0x9c:u32                       ⇒ stringview_wtf16.slice
+       |  0xfb 0xa0:u32                       ⇒ string.as_iter
+       |  0xfb 0xa1:u32                       ⇒ stringview_iter.next
+       |  0xfb 0xa2:u32                       ⇒ stringview_iter.advance
+       |  0xfb 0xa3:u32                       ⇒ stringview_iter.rewind
+       |  0xfb 0xa4:u32                       ⇒ stringview_iter.slice
+       |  0xfb 0xb0:u32 $policy:u32      [gc] ⇒ string.new_wtf8_array $policy
+       |  0xfb 0xb1:u32                  [gc] ⇒ string.new_wtf16_array
+       |  0xfb 0xb2:u32 $policy:u32      [gc] ⇒ string.encode_wtf8_array $policy
+       |  0xfb 0xb3:u32                  [gc] ⇒ string.encode_wtf16_array
 
 ;; New section.  If present, must be present only once, and right before
 ;; the globals section (or where the globals section would be).  Each
@@ -636,6 +636,9 @@ instr ::= ...
 ;; a section that appears later in the binary, after the code section.
 stringrefs ::= section_14(0x00 vec(vec(u8)))
 ```
+
+Note that the u32 (uleb) encoding for the opcode after the `0xfb` prefix
+takes two bytes, for opcode values between 0x80 and 0x3fff.
 
 ## Examples
 
