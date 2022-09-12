@@ -202,28 +202,32 @@ value reaches any instruction in this proposal.  The one exception is
 ### Creating strings
 
 ```
-wtf8_policy ::= 'utf8' | 'wtf8' | 'replace'
-(string.new_wtf8 $memory $wtf8_policy ptr:address bytes:i32)
+(string.new_utf8 $memory ptr:address bytes:i32)
+  -> str:stringref
+(string.new_lossy_utf8 $memory ptr:address bytes:i32)
+  -> str:stringref
+(string.new_wtf8 $memory ptr:address bytes:i32)
   -> str:stringref
 ```
-Create a new string from the *`bytes`* WTF-8 bytes in memory at *`ptr`*.
+Create a new string from the *`bytes`* bytes in memory at *`ptr`*.
 Out-of-bounds access will trap.  The maximum value for *`bytes`* is
 2<sup>31</sup>–1; passing a higher value traps.
 
-The precise decoding semantics depend on the *`$wtf8_policy`* immediate.
+These three instructions decode the bytes in three different ways:
 
-For `utf8`, the bytes are decoded using a strict UTF-8 decoder.  If the
-bytes are not valid UTF-8, trap.
+ * `string.new_utf8`, decodes using a strict UTF-8 decoder.  If the
+    bytes are not valid UTF-8, trap.
 
-For `wtf8`, the bytes are decoded using a strict WTF-8 decoder, which is
-like UTF-8 but also allows isolated surrogates.  If the bytes are not
-valid WTF-8, trap.
+ * `string.new_lossy_utf8` decodes using a sloppy UTF-8 decoder: all
+   maximal subparts of an invalid subsequence are decoded as if they
+   were `U+FFFD` (the replacement character) instead.  This instruction
+   will never trap due to a decoding error.  See the section entitled
+   "U+FFFD Substitution of Maximal Subparts" in the Unicode standard,
+   version 14.0.0, page 126.
 
-For `replace`, all maximal subparts of an invalid subsequence are
-decoded as if they were `U+FFFD` (the replacement character) instead.
-The `replace` policy will never trap due to a decoding error.  See the
-section entitled "U+FFFD Substitution of Maximal Subparts" in the
-Unicode standard, version 14.0.0, page 126.
+ * `string.new_wtf8` decodes using a strict WTF-8 decoder, which is like
+   UTF-8 but also allows isolated surrogates.  If the bytes are not
+   valid WTF-8, trap.
 
 ```
 (string.new_wtf16 $memory ptr:address codeunits:i32)
@@ -277,8 +281,8 @@ string literal section as a future extension.
 
 The maximum size for the WTF-8 encoding of an individual string literal
 is 2<sup>31</sup>–1 bytes.  Embeddings may impose their own limits which
-are more restricted.  But similarly to `string.new`, instantiating a
-module with string literals may fail due to lack of memory resources,
+are more restricted.  But similarly to `string.new_wtf8`, instantiating
+a module with string literals may fail due to lack of memory resources,
 even if the string size is formally within the limits.  However
 `string.const` itself never traps when passed a valid literal offset.
 
@@ -288,46 +292,96 @@ All parameters and return values measuring a number of codepoints or a
 number of code units represent these sizes as unsigned values.
 
 ```
-(string.measure_wtf8 $wtf8_policy str:stringref)
+(string.measure_utf8 str:stringref)
   -> codeunits:i32
+```
+Measure the number of code units (bytes) that would be required to
+encode the contents of the string *`str`* to UTF-8.  If the string
+contains an isolated surrogate, return -1.
+
+The maximum number of code units returned by `string.measure_utf8` is is
+2<sup>31</sup>-1.  If an encoding would require more code units than the
+limit, the result is -1.
+
+```
+(string.measure_wtf8 str:stringref)
+  -> codeunits:i32
+```
+Measure the number of code units (bytes) that would be required to
+encode the codepoints of the string *`str`* to WTF-8.
+
+Note that this instruction also serves to measure an encoding length for
+UTF-8 when isolated surrogates are replaced with `U+FFFD` ("lossy
+UTF-8"); the same number of bytes is required to encode `U+FFFD` as
+would be required to encode an isolated surrogate to WTF-8.
+
+The maximum number of code units returned by `string.measure_wtf8` is is
+2<sup>31</sup>-1.  If an encoding would require more code units than the
+limit, the result is -1.
+
+```
 (string.measure_wtf16 str:stringref)
   -> codeunits:i32
 ```
 Measure the number of code units that would be required to encode the
-contents of the string *`str`* to WTF-8 or WTF-16 respectively.
-For `string.measure_wtf8` with the `utf8` policy, if the string contains
-an isolated surrogate, return -1.
+contents of the string *`str`* to WTF-16.
 
-The maximum number of code units returned by `string.measure_wtf8` is is
-2<sup>31</sup>-1.  The maximum number of code units returned by
-`string.measure_wtf16` is is 2<sup>30</sup>-1.  If an encoding would
-require more code units than the limit, the result is -1.
+The maximum number of code units returned by `string.measure_wtf16` is
+is 2<sup>30</sup>-1.  If an encoding would require more code units than
+the limit, the result is -1.
 
 ```
-(string.encode_wtf8 $memory $wtf8_policy str:stringref ptr:address)
-  -> codeunits:i32
-(string.encode_wtf16 $memory str:stringref ptr:address)
+(string.encode_utf8 $memory str:stringref ptr:address)
   -> codeunits:i32
 ```
-Encode the contents of the string *`str`* as UTF-8, WTF-8, or WTF-16,
-respectively, to memory at *`ptr`*.  Return the number of code units
+Encode the contents of the string *`str`* as UTF-8 to memory at *ptr*.
+If an isolated surrogate is seen, trap.  Return the number of code units
 written, which will be the same as returned by the corresponding
-`string.measure_*encoding*`.
-
-Each code unit is written to memory as if stored by `i32.store8` or
-`i32.store16`, respectively, so WTF-16 code units are in little-endian
-byte order.
+`string.measure_utf8`.
 
 The maximum number of bytes that can be encoded at once by
 `string.encode` is 2<sup>31</sup>-1.  If an encoding would require more
 bytes, it is as if the codepoints can't be encoded (a trap).
 
-For `string.encode_wtf8`, if an isolated surrogate is seen, the behavior
-determines on the *`$wtf8_policy`* immediate.  For `utf8`, trap.  For
-`wtf8`, the surrogate is encoded as per WTF-8.  For `replace`, `U+FFFD`
-(the replacement character) is encoded instead.  Note that the UTF-8
-encoding of `U+FFFD` is the same length as the WTF-8 encoding of an
-isolated surrogate.
+```
+(string.encode_lossy_utf8 $memory str:stringref ptr:address)
+  -> codeunits:i32
+```
+Encode the contents of the string *`str`* as UTF-8 to memory at *`ptr`*.
+If an isolated surrogate is seen, encode `U+FFFD` (the replacement
+character) instead.  Return the number of code units written, which will
+be the same as returned by the corresponding `string.measure_wtf8`.
+
+The maximum number of bytes that can be encoded at once by
+`string.encode` is 2<sup>31</sup>-1.  If an encoding would require more
+bytes, it is as if the codepoints can't be encoded (a trap).
+
+```
+(string.encode_wtf8 $memory str:stringref ptr:address)
+  -> codeunits:i32
+```
+Encode the contents of the string *`str`* as WTF-8 to memory at *`ptr`*.
+Return the number of code units written, which will be the same as
+returned by the corresponding `string.measure_wtf8`.
+
+The maximum number of bytes that can be encoded at once by
+`string.encode` is 2<sup>31</sup>-1.  If an encoding would require more
+bytes, it is as if the codepoints can't be encoded (a trap).
+
+```
+(string.encode_wtf16 $memory str:stringref ptr:address)
+  -> codeunits:i32
+```
+Encode the contents of the string *`str`* as WTF-16 to memory at
+*`ptr`*.  Return the number of code units written, which will be the
+same as returned by the corresponding `string.measure_wtf16`.
+
+Each code unit is written to memory as if stored by `i32.store16`, so
+WTF-16 code units are in little-endian byte order.
+
+The maximum number of bytes that can be encoded at once by
+`string.encode` is 2<sup>31</sup>-1.  If an encoding would require more
+bytes, it is as if the codepoints can't be encoded (a trap).
 
 ### Concatenation
 
@@ -401,7 +455,11 @@ may allow for 64-bit variants of the position-using instructions, which
 could relax this restriction.)
 
 ```
-(stringview_wtf8.encode $memory $wtf8_policy view:stringview_wtf8 ptr:address pos:i32 bytes:i32)
+(stringview_wtf8.encode_utf8 $memory view:stringview_wtf8 ptr:address pos:i32 bytes:i32)
+  -> next_pos:i32, bytes:i32
+(stringview_wtf8.encode_lossy_utf8 $memory view:stringview_wtf8 ptr:address pos:i32 bytes:i32)
+  -> next_pos:i32, bytes:i32
+(stringview_wtf8.encode_wtf8 $memory view:stringview_wtf8 ptr:address pos:i32 bytes:i32)
   -> next_pos:i32, bytes:i32
 ```
 Write a subsequence of the WTF-8 encoding of *`view`* to memory at
@@ -419,8 +477,11 @@ proposal](https://github.com/WebAssembly/memory64/blob/main/proposals/memory64/O
 may allow for 64-bit variants of the position-using instructions, which
 could relax this restriction.)
 
-If an isolated surrogate is seen, the behavior determines on the
-*`$wtf8_policy`* immediate, as in `string.encode_wtf8`.
+If an isolated surrogate is seen, the behavior depends on the
+instruction:
+ * `stringview_wtf8.encode_utf8` will trap.
+ * `stringview_wtf8.encode_lossy_utf8` will encode `U+FFFD`.
+ * `stringview_wtf8.encode_wtf8` will encode the isolated surrogate.
 
 ```
 (stringview_wtf8.slice view:stringview_wtf8 start:i32 end:i32)
@@ -542,16 +603,23 @@ The instructions below shall be available in WebAssembly implementations
 that support both GC and stringrefs.
 
 ```
-(string.new_wtf8_array $wtf8_policy codeunits:$t start:i32 end:i32)
+(string.new_utf8_array codeunits:$t start:i32 end:i32)
+  if expand($t) => array i8
+  -> str:stringref
+(string.new_lossy_utf8_array codeunits:$t start:i32 end:i32)
+  if expand($t) => array i8
+  -> str:stringref
+(string.new_wtf8_array codeunits:$t start:i32 end:i32)
   if expand($t) => array i8
   -> str:stringref
 ```
-Create a new string from a subsequence of the *`codeunits`* WTF-8 bytes
-in a GC-managed array, starting from offset *`start`* and continuing to
-but not including *`end`*.  If *`end`* is less than *`start`* or is
-greater than the array length, trap.  The bytes are decoded according to
-`$wtf8_policy`, as in `string.new_wtf8`.  The maximum value for
-*`end`*–*`start`* is 2<sup>31</sup>–1; passing a higher value traps.
+Create a new string from a subsequence of the *`codeunits`* bytes in a
+GC-managed array, starting from offset *`start`* and continuing to but
+not including *`end`*.  If *`end`* is less than *`start`* or is greater
+than the array length, trap.  The bytes are decoded in the same way as
+`string.new_utf8`, `string.new_lossy_utf8`, and `string.new_wtf8`,
+respectively.  The maximum value for *`end`*–*`start`* is
+2<sup>31</sup>–1; passing a higher value traps.
 
 ```
 (string.new_wtf16_array codeunits:$t start:i32 end:i32)
@@ -566,7 +634,13 @@ for *`end`*–*`start`* is 2<sup>30</sup>–1; passing a higher value
 traps.
 
 ```
-(string.encode_wtf8_array $wtf8_policy str:stringref array:$t start:i32)
+(string.encode_utf8_array str:stringref array:$t start:i32)
+  if expand($t) => array (mut i8)
+  -> codeunits:i32
+(string.encode_lossy_utf8_array str:stringref array:$t start:i32)
+  if expand($t) => array (mut i8)
+  -> codeunits:i32
+(string.encode_wtf8_array str:stringref array:$t start:i32)
   if expand($t) => array (mut i8)
   -> codeunits:i32
 (string.encode_wtf16_array str:stringref array:$t start:i32)
@@ -581,9 +655,9 @@ same as the result of a the corresponding `string.measure_wtf8` or
 code units in the array, trap.  Note that no `NUL` terminator is ever
 written.
 
-For `string.encode_wtf8_array`, if an isolated surrogate is seen, the
-behavior depends on the *`$wtf8_policy`* immediate, in the same way as
-`string.encode_wtf8`.
+For `string.encode_utf8_array`, trap if an isolated surrogate is seen.
+For `string.encode_lossy_utf8_array`, replace isolated surrogates with
+`U+FFFD`.
 
 ## Binary encoding
 
@@ -594,39 +668,46 @@ reftype ::= ...
          |  0x62 ⇒ stringview_wtf16  ; SLEB128(-0x1e)
          |  0x61 ⇒ stringview_iter   ; SLEB128(-0x1f)
 
-wtf8_policy ::= 0x00 ⇒ utf8
-             |  0x01 ⇒ wtf8
-             |  0x02 ⇒ replace
-
 instr ::= ...
-       |  0xfb 0x80:u32 $mem:u32 $policy:u32  ⇒ string.new_wtf8 $mem $policy
-       |  0xfb 0x81:u32 $mem:u32              ⇒ string.new_wtf16 $mem
-       |  0xfb 0x82:u32 $idx:u32              ⇒ string.const $idx
-       |  0xfb 0x84:u32 $policy:u32           ⇒ string.measure_wtf8 $policy
-       |  0xfb 0x85:u32                       ⇒ string.measure_wtf16
-       |  0xfb 0x86:u32 $mem:u32 $policy:u32  ⇒ string.encode_wtf8 $mem $policy
-       |  0xfb 0x87:u32 $mem:u32              ⇒ string.encode_wtf16 $mem
-       |  0xfb 0x88:u32                       ⇒ string.concat
-       |  0xfb 0x89:u32                       ⇒ string.eq
-       |  0xfb 0x8a:u32                       ⇒ string.is_usv_sequence
-       |  0xfb 0x90:u32                       ⇒ string.as_wtf8
-       |  0xfb 0x91:u32                       ⇒ stringview_wtf8.advance
-       |  0xfb 0x92:u32 $mem:u32 $policy:u32  ⇒ stringview_wtf8.encode $mem $policy
-       |  0xfb 0x93:u32                       ⇒ stringview_wtf8.slice
-       |  0xfb 0x98:u32                       ⇒ string.as_wtf16
-       |  0xfb 0x99:u32                       ⇒ stringview_wtf16.length
-       |  0xfb 0x9a:u32                       ⇒ stringview_wtf16.get_codeunit
-       |  0xfb 0x9b:u32 $mem:u32              ⇒ stringview_wtf16.encode $mem
-       |  0xfb 0x9c:u32                       ⇒ stringview_wtf16.slice
-       |  0xfb 0xa0:u32                       ⇒ string.as_iter
-       |  0xfb 0xa1:u32                       ⇒ stringview_iter.next
-       |  0xfb 0xa2:u32                       ⇒ stringview_iter.advance
-       |  0xfb 0xa3:u32                       ⇒ stringview_iter.rewind
-       |  0xfb 0xa4:u32                       ⇒ stringview_iter.slice
-       |  0xfb 0xb0:u32 $policy:u32      [gc] ⇒ string.new_wtf8_array $policy
-       |  0xfb 0xb1:u32                  [gc] ⇒ string.new_wtf16_array
-       |  0xfb 0xb2:u32 $policy:u32      [gc] ⇒ string.encode_wtf8_array $policy
-       |  0xfb 0xb3:u32                  [gc] ⇒ string.encode_wtf16_array
+       |  0xfb 0xc0:u32 $mem:u32       ⇒ string.new_utf8 $mem
+       |  0xfb 0xc1:u32 $mem:u32       ⇒ string.new_lossy_utf8 $mem
+       |  0xfb 0xc2:u32 $mem:u32       ⇒ string.new_wtf8 $mem
+       |  0xfb 0x81:u32 $mem:u32       ⇒ string.new_wtf16 $mem
+       |  0xfb 0x82:u32 $idx:u32       ⇒ string.const $idx
+       |  0xfb 0xc3:u32                ⇒ string.measure_utf8
+       |  0xfb 0xc4:u32                ⇒ string.measure_wtf8
+       |  0xfb 0x85:u32                ⇒ string.measure_wtf16
+       |  0xfb 0xc5:u32 $mem:u32       ⇒ string.encode_utf8 $mem
+       |  0xfb 0xc6:u32 $mem:u32       ⇒ string.encode_lossy_utf8 $mem
+       |  0xfb 0xc7:u32 $mem:u32       ⇒ string.encode_wtf8 $mem
+       |  0xfb 0x87:u32 $mem:u32       ⇒ string.encode_wtf16 $mem
+       |  0xfb 0x88:u32                ⇒ string.concat
+       |  0xfb 0x89:u32                ⇒ string.eq
+       |  0xfb 0x8a:u32                ⇒ string.is_usv_sequence
+       |  0xfb 0x90:u32                ⇒ string.as_wtf8
+       |  0xfb 0x91:u32                ⇒ stringview_wtf8.advance
+       |  0xfb 0xd0:u32 $mem:u32       ⇒ stringview_wtf8.encode_utf8 $mem
+       |  0xfb 0xd1:u32 $mem:u32       ⇒ stringview_wtf8.encode_lossy_utf8 $mem
+       |  0xfb 0xd2:u32 $mem:u32       ⇒ stringview_wtf8.encode_wtf8 $mem
+       |  0xfb 0x93:u32                ⇒ stringview_wtf8.slice
+       |  0xfb 0x98:u32                ⇒ string.as_wtf16
+       |  0xfb 0x99:u32                ⇒ stringview_wtf16.length
+       |  0xfb 0x9a:u32                ⇒ stringview_wtf16.get_codeunit
+       |  0xfb 0x9b:u32 $mem:u32       ⇒ stringview_wtf16.encode $mem
+       |  0xfb 0x9c:u32                ⇒ stringview_wtf16.slice
+       |  0xfb 0xa0:u32                ⇒ string.as_iter
+       |  0xfb 0xa1:u32                ⇒ stringview_iter.next
+       |  0xfb 0xa2:u32                ⇒ stringview_iter.advance
+       |  0xfb 0xa3:u32                ⇒ stringview_iter.rewind
+       |  0xfb 0xa4:u32                ⇒ stringview_iter.slice
+       |  0xfb 0xe0:u32           [gc] ⇒ string.new_utf8_array
+       |  0xfb 0xe1:u32           [gc] ⇒ string.new_lossy_utf8_array
+       |  0xfb 0xe2:u32           [gc] ⇒ string.new_wtf8_array
+       |  0xfb 0xb1:u32           [gc] ⇒ string.new_wtf16_array
+       |  0xfb 0xe3:u32           [gc] ⇒ string.encode_utf8_array
+       |  0xfb 0xe4:u32           [gc] ⇒ string.encode_lossy_utf8_array
+       |  0xfb 0xe5:u32           [gc] ⇒ string.encode_wtf8_array
+       |  0xfb 0xb3:u32           [gc] ⇒ string.encode_wtf16_array
 
 ;; New section.  If present, must be present only once, and right before
 ;; the globals section (or where the globals section would be).  Each
@@ -652,13 +733,12 @@ operand allows you to elide the memory, in which case it defaults to 0.
   local.get $ptr
   local.get $ptr
   call $strlen
-  string.new_wtf8)
+  string.new_utf8)
 ```
 
-Generally speaking, this proposal only distinguishes between UTF-8 and
-WTF-8 when encoding string contents to memory.  As this is a a decode
-operation, the proposal just has a WTF-8 interface, as WTF-8 is a
-superset of UTF-8.
+If the bytes being decoded aren't actually valid UTF-8, this function
+will trap.  Use `string.new_lossy_utf8` in contexts where replacing
+invalid data with `U+FFFD` is a better strategy than trapping.
 
 ### Make string from an array of WTF-8 code units in memory
 
@@ -668,6 +748,10 @@ superset of UTF-8.
   local.get $len
   string.new_wtf8)
 ```
+
+Note that `string.new_wtf8` (and `string.new_wtf8_array`) are always
+strict decoders: if the bytes are not valid WTF-8, the instruction
+traps.
 
 ### Make string from UTF-16 in memory
 
@@ -868,7 +952,7 @@ open to considering adding more instructions.
   (local $len i32)
   (local $ptr i32)
   local.get $str
-  string.measure_wtf8 utf8
+  string.measure_utf8
   local.set $len
 
   block $valid
@@ -887,7 +971,7 @@ open to considering adding more instructions.
 
   local.get $str
   local.get $ptr
-  string.encode_wtf8 wtf8          ;; push bytes written, same as $len
+  string.encode_utf8        ;; push bytes written, same as $len
 
   local.get $ptr
   i32.add
@@ -898,12 +982,17 @@ open to considering adding more instructions.
   return)
 ```
 
-Using `string.measure_wtf8 utf8` ensures that the encoded string is a
-valid unicode scalar value sequence.  How to handle invalid UTF-8 is up
-to the user; instead of `unreachable` we could throw an exception.
+Using `string.measure_utf8` ensures that the encoded string is a valid
+unicode scalar value sequence.  How to handle invalid UTF-8 is up to the
+user; instead of `unreachable` we could throw an exception.
+
+Note that in this case, the subsequent `string.encode_utf8` could just
+as well have been `string.encode_lossy_utf8` or `string.encode_wtf8`, as
+these instructions are all the same for strings that do not contain
+isolated surrogates, and we checked that there were none.
 
 If we meant to handle isolated surrogates, we could use
-`string.measure_wtf8 wtf8` instead.
+`string.measure_wtf8` instead.
 
 ### Stream over contents of string
 
@@ -923,7 +1012,7 @@ will encode isolated surrogates as WTF-8.
     local.get $cursor
     global.get $buf
     i32.const 1024
-    string.encode_wtf8 wtf8          ;; push bytes written
+    string.encode_wtf8               ;; push bytes written
     local.tee $bytes
     (if i32.eqz (then return))       ;; if no bytes encoded, done
     local.get $bytes
