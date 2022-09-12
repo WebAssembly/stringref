@@ -215,7 +215,7 @@ Out-of-bounds access will trap.  The maximum value for *`bytes`* is
 
 These three instructions decode the bytes in three different ways:
 
- * `string.new_utf8`, decodes using a strict UTF-8 decoder.  If the
+ * `string.new_utf8` decodes using a strict UTF-8 decoder.  If the
     bytes are not valid UTF-8, trap.
 
  * `string.new_lossy_utf8` decodes using a sloppy UTF-8 decoder: all
