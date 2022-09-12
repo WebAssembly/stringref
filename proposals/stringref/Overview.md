@@ -669,27 +669,27 @@ reftype ::= ...
          |  0x61 ⇒ stringview_iter   ; SLEB128(-0x1f)
 
 instr ::= ...
-       |  0xfb 0xc0:u32 $mem:u32       ⇒ string.new_utf8 $mem
-       |  0xfb 0xc1:u32 $mem:u32       ⇒ string.new_lossy_utf8 $mem
-       |  0xfb 0xc2:u32 $mem:u32       ⇒ string.new_wtf8 $mem
+       |  0xfb 0x80:u32 $mem:u32       ⇒ string.new_utf8 $mem
        |  0xfb 0x81:u32 $mem:u32       ⇒ string.new_wtf16 $mem
        |  0xfb 0x82:u32 $idx:u32       ⇒ string.const $idx
-       |  0xfb 0xc3:u32                ⇒ string.measure_utf8
-       |  0xfb 0xc4:u32                ⇒ string.measure_wtf8
+       |  0xfb 0x83:u32                ⇒ string.measure_utf8
+       |  0xfb 0x84:u32                ⇒ string.measure_wtf8
        |  0xfb 0x85:u32                ⇒ string.measure_wtf16
-       |  0xfb 0xc5:u32 $mem:u32       ⇒ string.encode_utf8 $mem
-       |  0xfb 0xc6:u32 $mem:u32       ⇒ string.encode_lossy_utf8 $mem
-       |  0xfb 0xc7:u32 $mem:u32       ⇒ string.encode_wtf8 $mem
+       |  0xfb 0x86:u32 $mem:u32       ⇒ string.encode_utf8 $mem
        |  0xfb 0x87:u32 $mem:u32       ⇒ string.encode_wtf16 $mem
        |  0xfb 0x88:u32                ⇒ string.concat
        |  0xfb 0x89:u32                ⇒ string.eq
        |  0xfb 0x8a:u32                ⇒ string.is_usv_sequence
+       |  0xfb 0x8b:u32 $mem:u32       ⇒ string.new_lossy_utf8 $mem
+       |  0xfb 0x8c:u32 $mem:u32       ⇒ string.new_wtf8 $mem
+       |  0xfb 0x8d:u32 $mem:u32       ⇒ string.encode_lossy_utf8 $mem
+       |  0xfb 0x8e:u32 $mem:u32       ⇒ string.encode_wtf8 $mem
        |  0xfb 0x90:u32                ⇒ string.as_wtf8
        |  0xfb 0x91:u32                ⇒ stringview_wtf8.advance
-       |  0xfb 0xd0:u32 $mem:u32       ⇒ stringview_wtf8.encode_utf8 $mem
-       |  0xfb 0xd1:u32 $mem:u32       ⇒ stringview_wtf8.encode_lossy_utf8 $mem
-       |  0xfb 0xd2:u32 $mem:u32       ⇒ stringview_wtf8.encode_wtf8 $mem
+       |  0xfb 0x92:u32 $mem:u32       ⇒ stringview_wtf8.encode_utf8 $mem
        |  0xfb 0x93:u32                ⇒ stringview_wtf8.slice
+       |  0xfb 0x94:u32 $mem:u32       ⇒ stringview_wtf8.encode_lossy_utf8 $mem
+       |  0xfb 0x95:u32 $mem:u32       ⇒ stringview_wtf8.encode_wtf8 $mem
        |  0xfb 0x98:u32                ⇒ string.as_wtf16
        |  0xfb 0x99:u32                ⇒ stringview_wtf16.length
        |  0xfb 0x9a:u32                ⇒ stringview_wtf16.get_codeunit
@@ -700,14 +700,14 @@ instr ::= ...
        |  0xfb 0xa2:u32                ⇒ stringview_iter.advance
        |  0xfb 0xa3:u32                ⇒ stringview_iter.rewind
        |  0xfb 0xa4:u32                ⇒ stringview_iter.slice
-       |  0xfb 0xe0:u32           [gc] ⇒ string.new_utf8_array
-       |  0xfb 0xe1:u32           [gc] ⇒ string.new_lossy_utf8_array
-       |  0xfb 0xe2:u32           [gc] ⇒ string.new_wtf8_array
+       |  0xfb 0xb0:u32           [gc] ⇒ string.new_utf8_array
        |  0xfb 0xb1:u32           [gc] ⇒ string.new_wtf16_array
-       |  0xfb 0xe3:u32           [gc] ⇒ string.encode_utf8_array
-       |  0xfb 0xe4:u32           [gc] ⇒ string.encode_lossy_utf8_array
-       |  0xfb 0xe5:u32           [gc] ⇒ string.encode_wtf8_array
+       |  0xfb 0xb2:u32           [gc] ⇒ string.encode_utf8_array
        |  0xfb 0xb3:u32           [gc] ⇒ string.encode_wtf16_array
+       |  0xfb 0xb4:u32           [gc] ⇒ string.new_lossy_utf8_array
+       |  0xfb 0xb5:u32           [gc] ⇒ string.new_wtf8_array
+       |  0xfb 0xb6:u32           [gc] ⇒ string.encode_lossy_utf8_array
+       |  0xfb 0xb7:u32           [gc] ⇒ string.encode_wtf8_array
 
 ;; New section.  If present, must be present only once, and right before
 ;; the globals section (or where the globals section would be).  Each
