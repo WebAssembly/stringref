@@ -181,10 +181,15 @@ of codepoints.  WebAssembly programs can use stringviews to encode parts
 of strings to memory, access string contents by index, and to take
 substrings.
 
+This proposal depends on [typed function
+references](https://github.com/WebAssembly/function-references), for its
+heap type and non-nullable reference facilities.
+
 ## The `stringref` facility
 
-One new reference type: `stringref`.  Opaque, like `externref` and
-`funcref`.
+One new [heap
+type](https://webassembly.github.io/function-references/core/syntax/types.html#heap-types),
+`string`, with an opaque representation, like the `extern` heap type.
 
 When reading or writing encoded bytes, the address in memory at which to
 read or write the bytes depends on the memory model of the WebAssembly
@@ -195,9 +200,10 @@ address ::= i32 | i64
 Such instructions also take the memory to which to read or write as an
 immediate.
 
-Although `stringref` is a nullable type, trap if a null `stringref`
-value reaches any instruction in this proposal.  The one exception is
-`string.eq`.
+The `stringref` value type is short for `(ref string)`, and unlike the
+other standard shorthands is non-nullable.  All instructions in this
+proposal consume and produce non-nullable references, with the exception
+of `string.eq` which takes `(ref null string)`.
 
 ### Creating strings
 
@@ -404,7 +410,7 @@ If an allocation fails, the implementation must trap.  Fallible
 ### Predicates
 
 ```
-(string.eq a:stringref b:stringref) -> i32
+(string.eq a:(ref null string) b:(ref null string)) -> i32
 ```
 If both *`a`* and *`b`* are null, return 1.  If only one of them is
 null, return 0.  Otherwise return 1 if the strings *`a`* and *`b`*
@@ -420,8 +426,16 @@ surrogates.
 
 ## The `stringview` facility
 
-Three new reference types: `stringview_wtf8`, `stringview_wtf16`, and
-`stringview_iter`.  Opaque, like `externref` and `funcref`.
+Three new heap types: `stringview_wtf8`, `stringview_wtf16`, and
+`stringview_iter`.  Opaque, in the same way as `string`.
+
+There are also shorthand [reference
+types](https://webassembly.github.io/function-references/core/binary/types.html#reference-types)
+corresponding to the heap types:
+
+ * `stringview_wtf8`: `(ref stringview_wtf8)`
+ * `stringview_wtf16`: `(ref stringview_wtf16)`
+ * `stringview_iter`: `(ref stringview_iter)`
 
 ### `stringview_wtf8`
 
@@ -662,6 +676,12 @@ For `string.encode_lossy_utf8_array`, replace isolated surrogates with
 ## Binary encoding
 
 ```
+heaptype ::= ...
+         |  0x64 ⇒ string            ; SLEB128(-0x1c)
+         |  0x63 ⇒ stringview_wtf8   ; SLEB128(-0x1d)
+         |  0x62 ⇒ stringview_wtf16  ; SLEB128(-0x1e)
+         |  0x61 ⇒ stringview_iter   ; SLEB128(-0x1f)
+
 reftype ::= ...
          |  0x64 ⇒ stringref         ; SLEB128(-0x1c)
          |  0x63 ⇒ stringview_wtf8   ; SLEB128(-0x1d)
@@ -1347,10 +1367,6 @@ code.  However as reference-typed values aren't storable to main memory,
 we expect that unless a C++ program is carefully built to integrate
 reference types, that most `stringref` values will be eagerly converted
 to WTF-8 on the WebAssembly boundary.
-
-### Is the `stringref` type nullable?
-
-Oh God I guess so.  `ref.null string` it is I guess!!  :sob: :sob: :sob:
 
 ### What kinds of performance gains can we expect?
 
