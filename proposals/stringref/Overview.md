@@ -33,10 +33,10 @@ find good compromises are "minimal" and "viable".
  - *unicode scalar value*: A codepoint that is not a surrogate.
  - *character*: An imprecise concept that we try to avoid in this
     document.
- - *code unit*: An indivisible unit of an encoded unicode scalar value.
-    For UTF-8 encodings, an integer in the range [0,0xFF] (a byte); for
-    UTF-16 encodings, an integer in the range [0,0xFFFF]; for UTF-32,
-    the unicode scalar value itself.
+ - *code unit*: The minimal bit combination that can represent a unit of
+    encoded text for processing or interchange. For UTF-8 encodings, an
+    integer in the range [0,0xFF] (a byte); for UTF-16 encodings, an
+    integer in the range [0,0xFFFF]; for UTF-32, the codepoint value.
  - *high surrogate*: A surrogate in the range [0xD800,0xDBFF].
  - *low surrogate*: A surrogate which is not a high surrogate.
  - *surrogate pair*: A sequence of a *high surrogate* followed by a *low
